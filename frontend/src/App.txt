@@ -1,0 +1,157 @@
+original App.jsx code
+
+import { useState } from "react";
+
+function App() {
+
+  const [files, setFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [asking, setAsking] = useState(false);
+
+  function handleFileChange (event) {
+    setFiles(Array.from(event.target.files)); //converts file list into an array of files
+    setMessage("");
+  };
+
+  async function handleUpload(){
+
+    if (files.length === 0) {
+      setMessage("Please select at least one PDF.");
+      return;
+    }
+
+    setUploading(true);
+    setMessage("");
+
+    const formData = new FormData();
+
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    try {
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/upload",
+        {
+          method: "POST",
+          body: formData
+        }
+      );
+
+      const data = await response.json(); //read the response body sent back by FastAPI backend and convert the JSON into a JavaScript object.
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Upload failed");
+      }
+
+      setMessage(data.message);
+
+    } catch (error) {
+      setMessage(`Error: ${error.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  async function handleAsk(){
+    if (!question.trim()) {
+      return;
+    }
+
+    setAsking(true);
+    setAnswer("");
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/chat",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ //converting JavaScript object into JSON data
+            question: question
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Request failed");
+      }
+
+      if (data.error) {
+        setAnswer(data.error);
+      } else {
+        setAnswer(data.response);
+      }
+
+    } catch (error) {
+      setAnswer(`Error: ${error.message}`);
+
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  return (
+    <div>
+
+      <h1>PDF RAG Chatbot</h1>
+
+      <h2>Upload PDFs</h2>
+
+      <input
+        type="file"
+        accept=".pdf"
+        multiple
+        onChange={handleFileChange}
+      />
+
+      <h3>Selected files:</h3>
+
+      <ul>
+        {files.map((file, index) => (
+          <li key={index}>{file.name}</li>
+        ))}
+      </ul>
+
+      <button onClick={handleUpload} disabled={uploading}>
+        {uploading ? "Uploading..." : "Upload PDFs"}
+      </button>
+
+      {message && <p>{message}</p>}
+
+      <hr/>
+
+      <h2>Ask a question</h2>
+
+      <input
+        type="text"
+        value={question}
+        onChange={(event) => setQuestion(event.target.value)}
+        placeholder="Ask something about your PDFs..."
+      />
+
+      <button onClick={handleAsk} disabled={asking}>
+        {asking ? "Thinking..." : "Ask"}
+      </button>
+
+      {answer && (
+        <div>
+          <h3>Answer:</h3>
+          <p>{answer}</p>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+export default App;

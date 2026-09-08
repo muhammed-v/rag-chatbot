@@ -50,7 +50,7 @@ function App() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/upload",
+        "/upload", //was originally http://127.0.0.1:8000/upload but changed for deployment. still works in local due to the proxy created in vite.config.js
         {
           method: "POST",
           body: formData,
@@ -100,7 +100,7 @@ function App() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/chat",
+        "/chat",
         {
           method: "POST",
           headers: {

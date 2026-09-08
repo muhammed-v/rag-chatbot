@@ -6,5 +6,7 @@ backend/.env
 backend/test.py
 
 backend/uploads/
+backend/static/
 
 frontend/node_modules/
+frontend/dist/

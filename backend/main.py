@@ -3,6 +3,8 @@ load_dotenv()
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, UploadFile, File
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import os
@@ -28,9 +30,25 @@ chat_history = []
 class ChatRequest(BaseModel):
     question:str
 
+#React front end
+STATIC_DIR = os.path.join( os.path.dirname(__file__), "static")
+
+if os.path.exists(STATIC_DIR):
+    app.mount( #We're telling FastAPI: Whenever somebody requests something beginning with /assets, serve it from my static/assets directory.
+        "/assets",
+        StaticFiles(
+            directory=os.path.join(STATIC_DIR, "assets")
+        ),
+        name="assets"
+    )
 
 @app.get("/") #When someone accesses /, run the home() function.
 def home():
+
+    index_path = os.path.join(STATIC_DIR,"index.html") #index.html-> entry point of react application
+
+    if os.path.exists(index_path):
+        return FileResponse(index_path) #Send this file to the browser as the HTTP response
     return {"message": "RAG API is running"}
 
 
@@ -45,26 +63,40 @@ async def upload_pdfs(files: list[UploadFile] = File(...)): #The ... means the f
     pdf_paths = []
     uploaded_filenames = []
 
-    for file in files:
-        if file.content_type != "application/pdf":
-            return {"error": f"{file.filename} is not a PDF"}
-        
-        document_id = str(uuid.uuid4())
-        pdf_path = os.path.join("uploads",f"{document_id}.pdf")
-        
-        #save uploaded file
-        with open(pdf_path,"wb") as buffer:
-            shutil.copyfileobj(file.file,buffer)
+    try:
 
-        pdf_paths.append(pdf_path)
-        uploaded_filenames.append(file.filename)
+        for file in files:
+            if file.content_type != "application/pdf":
+                return {"error": f"{file.filename} is not a PDF"}
+            
+            document_id = str(uuid.uuid4())
+            pdf_path = os.path.join("uploads",f"{document_id}.pdf")
+            
+            #save uploaded file
+            with open(pdf_path,"wb") as buffer:
+                shutil.copyfileobj(file.file,buffer)
 
+            pdf_paths.append(pdf_path)
+            uploaded_filenames.append(file.filename)
+
+        
+
+        rag = RAGPipeline(pdf_paths)
+        chat_history = []
+
+        return { "message": "PDFs uploaded and processed successfully", "files": uploaded_filenames }
+
+    finally:
+
+        for pdf_path in pdf_paths:
+
+            try:
+                if os.path.exists(pdf_path):
+                    os.remove(pdf_path)
+            except Exception as cleanup_error:
+                print(f"Could not delete {pdf_path}: "
+                    f"{cleanup_error}")
     
-
-    rag = RAGPipeline(pdf_paths)
-    chat_history = []
-
-    return { "message": "PDFs uploaded and processed successfully", "files": uploaded_filenames }
 
 
 @app.post("/chat")

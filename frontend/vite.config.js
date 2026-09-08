@@ -4,4 +4,10 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      '/upload': 'http://127.0.0.1:8000',
+      '/chat': 'http://127.0.0.1:8000',
+    },
+  },
 })
